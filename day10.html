@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>day12 Solution</title><script src="file:///usr/share/javascript/requirejs/require.min.js"></script>
+<title>day10</title><script src="file:///usr/share/javascript/requirejs/require.min.js"></script>
 
 
 
@@ -14031,10 +14031,170 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h1 id="Advent-of-Code-Day-12">Advent of Code Day 12<a class="anchor-link" href="#Advent-of-Code-Day-12">&#182;</a></h1><h2 id="%E2%9A%A0%EF%B8%8F-WARNING:-CONTAINS-SPOILERS!">&#9888;&#65039; WARNING: CONTAINS SPOILERS!<a class="anchor-link" href="#%E2%9A%A0%EF%B8%8F-WARNING:-CONTAINS-SPOILERS!">&#182;</a></h2><p>For today’s <a href="https://adventofcode.com/2025/day/12">challenge</a>, we are presented with what initially appears to be a difficult optimization problem. In fact, a quick search reveals that this problem can be modeled as a variant of the <a href="https://en.wikipedia.org/wiki/Knapsack_problem">geometric knapsack problem</a>, which is NP-hard. A good lecture on this class of problems can be found <a href="https://www.youtube.com/watch?v=0q_GryBSoOM">here</a>.</p>
-<p>A naïve dynamic programming approach that precomputes all translations and rotations of each of the five shapes is infeasible. With five shapes, four rotations each, translations, and arbitrary placements, the problem space quickly explodes to well over $50! \approx 8.3.0414 \times 10^{64}$ permutations.</p>
-<p>My initial approach was to better understand the structure of the input and look for ways to aggressively reduce the search space. The first key insight was to establish an easy <em>lower bound</em> that eliminates invalid specifications outright. In other words, without trying every rotation or flip, I identified X×Y spaces that are simply too small to accommodate the required number of shapes and their combined area.</p>
-<p>For example, a 10×10 space cannot hold 20 shapes if each shape has an area of 10, regardless of how they are rotated. Applying this constraint immediately eliminates roughly half of the candidate spaces.</p>
+<h1 id="Advent-of-Code-Day-10">Advent of Code Day 10<a class="anchor-link" href="#Advent-of-Code-Day-10">&#182;</a></h1><p>The day 10 problem description is a thinly veiled <strong>graph problem</strong>: we find the sortest path from an initial stated to a desired end state.</p>
+<p>I initially approached this problem using a <strong>breadth-first search (BFS)</strong></p>
+
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h3 id="Start-up-Code">Start-up Code<a class="anchor-link" href="#Start-up-Code">&#182;</a></h3><p><strong>NOTE:</strong> One notable implementation choice was how to represent and store button pushes. I wanted to record the results primarily for troubleshooting and debugging purposes. Although Python lists have an amortized time complexity of $O(1)$ for appends, they are relatively heavy in terms of memory usage and less efficient than linked structures for this use case. The <code>Node</code> class below provides a more time and memory-efficient data structure for representing lists incrementally.</p>
+
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+<span class="kn">from</span> <span class="nn">queue</span> <span class="kn">import</span> <span class="n">PriorityQueue</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">z3</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"10.input"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">Node</span><span class="p">:</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"value"</span><span class="p">,</span> <span class="s2">"next"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">next_node</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next</span> <span class="o">=</span> <span class="n">next_node</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">next</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">next</span><span class="o">.</span><span class="fm">__len__</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">next</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> 
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">"Node("</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">+</span> <span class="s2">" -&gt; "</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">next</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">()</span><span class="o">+</span><span class="s2">")"</span>
+    
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">while</span> <span class="n">current</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">current</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">next</span>
+    
+<span class="n">lights</span><span class="o">=</span><span class="p">[]</span>
+<span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+    <span class="n">goal</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"] ("</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">buttons</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"] ("</span><span class="p">)[</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">") {"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">") ("</span><span class="p">)</span>
+    <span class="n">buttons</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">stry</span><span class="p">)</span> <span class="k">for</span> <span class="n">stry</span> <span class="ow">in</span> <span class="n">but</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)</span> <span class="p">]</span> <span class="k">for</span> <span class="n">but</span> <span class="ow">in</span> <span class="n">buttons</span><span class="p">]</span>
+    <span class="n">volts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"] ("</span><span class="p">)[</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">") {"</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)]</span>
+    <span class="n">lights</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">goal</span><span class="p">,</span> <span class="n">buttons</span><span class="p">,</span><span class="n">volts</span><span class="p">))</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h4 id="Part-1">Part 1<a class="anchor-link" href="#Part-1">&#182;</a></h4>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">getNext</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">buttons</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">char_arr</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">s</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">but</span> <span class="ow">in</span> <span class="n">buttons</span><span class="p">:</span>
+        <span class="n">char_arr</span><span class="p">[</span><span class="n">but</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"#"</span> <span class="k">if</span> <span class="n">char_arr</span><span class="p">[</span><span class="n">but</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"."</span> <span class="k">else</span> <span class="s2">"."</span>
+    <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">char_arr</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">process1</span><span class="p">(</span><span class="n">goal</span><span class="p">,</span> <span class="n">buttons</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">start_state</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"."</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">goal</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">start_n</span><span class="o">=</span> <span class="n">Node</span><span class="p">(</span><span class="n">start_state</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">start_n</span><span class="p">)</span>
+    <span class="n">visited</span><span class="o">=</span><span class="nb">set</span><span class="p">()</span>
+    <span class="k">while</span> <span class="n">q</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">,</span> <span class="n">move</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">goal</span> <span class="o">==</span> <span class="n">state</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span>
+            <span class="k">for</span> <span class="n">but</span> <span class="ow">in</span> <span class="n">buttons</span><span class="p">:</span>
+                <span class="n">new_state</span> <span class="o">=</span> <span class="n">getNext</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">but</span><span class="p">)</span>
+                <span class="n">nn</span> <span class="o">=</span> <span class="n">Node</span><span class="p">((</span><span class="n">new_state</span><span class="p">,</span><span class="n">but</span><span class="p">),</span> <span class="n">n</span><span class="p">)</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="p">)</span>
+            <span class="n">visited</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The answer to part1 is </span><span class="si">{</span><span class="nb">sum</span><span class="p">([</span><span class="w"> </span><span class="n">process1</span><span class="p">(</span><span class="n">fixture</span><span class="p">,</span><span class="w"> </span><span class="n">buttons</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">fixture</span><span class="p">,</span><span class="w"> </span><span class="n">buttons</span><span class="p">,</span><span class="w"> </span><span class="n">volts</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">lights</span><span class="p">])</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>The answer to part1 is 449
+</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h3 id="Part-2">Part 2<a class="anchor-link" href="#Part-2">&#182;</a></h3><p>In classic <em>Advent of Code</em> fashion, early design decisions made in Part 1 can render Part 2 intractable if care is not taken. As expected, a naïve extension of the Part 1 approach fails due to prohibitive runtime. I briefly experimented with A* in the hope that the existing code could be adapted, but it quickly became clear that this was the wrong tool for the problem.</p>
+<p>After further investigation, Part 2 is best modeled as an <strong><a href="https://en.wikipedia.org/wiki/Integer_programming">integer linear programming (ILP)</a></strong> problem.</p>
+<p>The solution below was authored by <strong>HyperNeutrino</strong>, who provides an excellent walkthrough of using Z3 <a href="https://www.youtube.com/watch?v=OJ4dxrIfDfs">here</a>.</p>
 
 </div>
 </div>
@@ -14047,22 +14207,28 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"12.input"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
 
-<span class="n">shapes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">6</span><span class="p">]]</span>
-<span class="n">specs</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-<span class="n">specs</span> <span class="o">=</span>  <span class="p">[(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">": "</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"x"</span><span class="p">)),</span> <span class="p">[</span> 
-    <span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">": "</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">" "</span><span class="p">)])</span> 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">specs</span>
-    <span class="p">]</span>
+<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^\[([.#]+)\] ([()\d, ]+) \{([\d,]+)\}$"</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">buttons</span><span class="p">,</span> <span class="n">joltages</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="n">buttons</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">button</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)))</span> <span class="k">for</span> <span class="n">button</span> <span class="ow">in</span> <span class="n">buttons</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+    <span class="n">joltages</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">joltages</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)))</span>
+    <span class="n">o</span> <span class="o">=</span> <span class="n">z3</span><span class="o">.</span><span class="n">Optimize</span><span class="p">()</span>
+    <span class="nb">vars</span> <span class="o">=</span> <span class="n">z3</span><span class="o">.</span><span class="n">Ints</span><span class="p">(</span><span class="sa">f</span><span class="s2">"n</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">buttons</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">:</span> 
+        <span class="n">o</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">var</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">joltage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">joltages</span><span class="p">):</span>
+        <span class="n">equation</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">button</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">buttons</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">button</span><span class="p">:</span>
+                <span class="n">equation</span> <span class="o">+=</span> <span class="nb">vars</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+        <span class="n">o</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">equation</span> <span class="o">==</span> <span class="n">joltage</span><span class="p">)</span>
+    <span class="n">o</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">vars</span><span class="p">))</span>
+    <span class="n">o</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+    <span class="n">total</span> <span class="o">+=</span> <span class="n">o</span><span class="o">.</span><span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">vars</span><span class="p">))</span><span class="o">.</span><span class="n">as_long</span><span class="p">()</span>
 
-
-<span class="n">sim_area</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">":"</span><span class="p">)),</span><span class="nb">sum</span><span class="p">(</span> <span class="n">t</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"#"</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shapes</span><span class="p">)</span>
-
-<span class="n">val1</span> <span class="o">=</span> <span class="p">[</span> <span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">specs</span> <span class="k">if</span> <span class="n">x</span><span class="o">*</span><span class="n">y</span> <span class="o">&gt;</span> <span class="nb">sum</span><span class="p">(</span> <span class="p">[</span> <span class="n">sim_area</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">num</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">l</span><span class="p">)])]</span>
-<span class="n">inval1</span> <span class="o">=</span> <span class="p">[</span> <span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">specs</span> <span class="k">if</span> <span class="n">x</span><span class="o">*</span><span class="n">y</span> <span class="o">&lt;</span> <span class="nb">sum</span><span class="p">(</span> <span class="p">[</span> <span class="n">sim_area</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">num</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">l</span><span class="p">)])]</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The number of valid areas with simple floor bounding are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val1</span><span class="p">)</span><span class="si">}</span><span class="s2"> and the number invalid are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inval1</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The answer for part 2 is </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14084,7 +14250,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>The number of valid areas with simple floor bounding are 546 and the number invalid are 454
+<pre>The answer for part 2 is 17848
 </pre>
 </div>
 </div>
@@ -14100,60 +14266,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Next, I examined the opposite extreme: spaces with <em>excessive</em> area—that is, spaces that are sparse. I bounded each shape by a 3×3 box and checked whether the number of such boxes could fit within the given problem space. This idea was inspired by the lecture referenced above.</p>
-
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
-<div class="jp-Cell-inputWrapper">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-     <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">loose_areas</span> <span class="o">=</span> <span class="p">[</span> <span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span><span class="n">l</span> <span class="ow">in</span> <span class="n">val1</span> <span class="k">if</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="o">*</span><span class="mi">9</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The number of loose areas are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">loose_areas</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-
-     </div>
-</div>
-</div>
-</div>
-
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-
-
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>The number of loose areas are 546
-</pre>
-</div>
-</div>
-
-</div>
-
-</div>
-
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
-<div class="jp-Cell-inputWrapper">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Interestingly, the number of valid spaces identified by the lower-bound constraint exactly matched the number of “sparse” spaces identified by this upper-bound analysis. This overlap turns out to be the answer to the problem. Ultimately, no advanced algorithmic technique was required—just careful reasoning about bounds and constraints.</p>
-<p>Please <a href="https://github.com/benklim/benklim.github.io/discussions/2">comment</a>!</p>
+<p>Please <a href="https://github.com/benklim/benklim.github.io/discussions/4">comment</a>!</p>
 
 </div>
 </div>
